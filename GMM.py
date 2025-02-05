@@ -1,10 +1,12 @@
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Part 1: CAVI and Gaussian estimation
+
 mu, sigma = 0.5, 1
 data = np.random.normal(mu, sigma, 10000)
 plt.hist(data, 30, density=True)
-
 
 class CAVI():
     def __init__(self, data):
@@ -47,17 +49,15 @@ class CAVI():
         itr=0
         while itr<iterate and not self.has_converged():
             itr+=1
-            self.mu_n = (self.ndata*self.xbar + self.mu_0)/(self.ndata+1) # this actually converges aft 1 iteration
+            self.mu_n = (self.ndata*self.xbar + self.mu_0)/(self.ndata+1)
             self.mu = self.mu_n
             
             self.alpha_n = self.alpha_0 + (self.ndata+1)/2
-            self.beta_n = self.beta_0 + 0.5*(np.sum(self.data**2)) - self.xbar*np.sum(self.data) + ((self.ndata+1)/2)*( (self.sigma/self.ndata) + self.xbar**2) - self.mu_0*self.xbar + 0.5*self.mu_0**2           
+            self.beta_n = self.beta_0 + 0.5*(np.sum(self.data**2)) - self.xbar*np.sum(self.data) + ((self.ndata+1)/2)*((self.sigma/self.ndata) + self.xbar**2) - self.mu_0*self.xbar + 0.5*self.mu_0**2           
             self.sigma = (self.beta_n-1)/self.alpha_n
             ELBO = self.calc_elbo()
             self.ELBOs.append(ELBO)
             print("iteration:", itr, "ELBO:", ELBO)
-
-
 
 cavi = CAVI(data)
 cavi.coordinate_ascent(1000)
@@ -67,27 +67,48 @@ plt.plot(x, y, 'r-', label='Estimated Gaussian')
 plt.legend()
 plt.show()
 
+# Part 2: Custom K-Means clustering
 
-# Generate three separate clusters in 2D
+# Generate three clusters of two-dimensional data points
 np.random.seed(42)
-cluster1 = np.random.normal(loc=[0, 0], scale=1.0, size=(100, 2))
-cluster2 = np.random.normal(loc=[5, 5], scale=1.0, size=(100, 2))
-cluster3 = np.random.normal(loc=[10, 0], scale=1.0, size=(100, 2))
+cluster1 = np.random.normal(loc=[0, 0], scale=0.5, size=(100, 2))
+cluster2 = np.random.normal(loc=[3, 3], scale=0.5, size=(100, 2))
+cluster3 = np.random.normal(loc=[0, 3], scale=0.5, size=(100, 2))
+data_clusters = np.vstack((cluster1, cluster2, cluster3))
 
-# Combine all clusters into one dataset
-data = np.vstack((cluster1, cluster2, cluster3))
+def custom_kmeans(data, k, max_iter=100, tol=1e-4):
+    n_samples, n_features = data.shape
+    # Initialize centroids randomly from the data points
+    indices = np.random.choice(n_samples, k, replace=False)
+    centroids = data[indices]
+    
+    for i in range(max_iter):
+        # Compute distances and assign clusters
+        distances = np.linalg.norm(data[:, np.newaxis, :] - centroids, axis=2)
+        labels = np.argmin(distances, axis=1)
+        
+        new_centroids = np.zeros_like(centroids)
+        for j in range(k):
+            if np.any(labels == j):
+                new_centroids[j] = data[labels == j].mean(axis=0)
+            else:
+                new_centroids[j] = centroids[j]  # Avoid empty cluster
+        
+        # Check for convergence
+        if np.allclose(new_centroids, centroids, atol=tol):
+            break
+        centroids = new_centroids
+        
+    return labels, centroids
 
-# Cluster the data into three clusters using KMeans
-kmeans = KMeans(n_clusters=3, random_state=42)
-labels = kmeans.fit_predict(data)
+labels, centroids = custom_kmeans(data_clusters, k=3)
 
-# Plot the clusters with different colors and plot the centroids
-plt.figure(figsize=(8, 6))
-plt.scatter(data[:, 0], data[:, 1], c=labels, cmap='viridis', alpha=0.6)
-plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1],
-            c='red', marker='X', s=200, label='Centroids')
-plt.xlabel("X")
-plt.ylabel("Y")
-plt.title("Three Clusters with KMeans")
+# Plot the clustered data with centroids highlighted
+plt.figure()
+plt.scatter(data_clusters[:,0], data_clusters[:,1], c=labels, cmap='viridis', s=30)
+plt.scatter(centroids[:,0], centroids[:,1], color='red', marker='x', s=100, label='Centroids')
+plt.title("K-Means Clustering")
+plt.xlabel("Feature 1")
+plt.ylabel("Feature 2")
 plt.legend()
 plt.show()
