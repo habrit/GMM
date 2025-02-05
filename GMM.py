@@ -70,7 +70,7 @@ plt.show()
 # Part 2: Custom K-Means clustering
 
 # Generate three clusters of two-dimensional data points
-np.random.seed(42)
+np.random.seed()
 cluster1 = np.random.normal(loc=[0, 0], scale=0.5, size=(100, 2))
 cluster2 = np.random.normal(loc=[3, 3], scale=0.5, size=(100, 2))
 cluster3 = np.random.normal(loc=[0, 3], scale=0.5, size=(100, 2))
@@ -108,6 +108,40 @@ plt.figure()
 plt.scatter(data_clusters[:,0], data_clusters[:,1], c=labels, cmap='viridis', s=30)
 plt.scatter(centroids[:,0], centroids[:,1], color='red', marker='x', s=100, label='Centroids')
 plt.title("K-Means Clustering")
+plt.xlabel("Feature 1")
+plt.ylabel("Feature 2")
+plt.legend()
+plt.show()
+# Use the custom K-means labels to form clusters and then run CAVI on each dimension separately.
+# (Note: The original CAVI class estimates parameters for a one-dimensional Gaussian.
+#  Here we apply it independently to each feature of each cluster.)
+
+cluster_params = {}
+unique_labels = np.unique(labels)
+
+for lbl in unique_labels:
+    cluster_data = data_clusters[labels == lbl]
+    mu_est = []
+    sigma_est = []
+    # Run CAVI independently on each dimension
+    for d in range(cluster_data.shape[1]):
+        cavi_instance = CAVI(cluster_data[:, d])
+        cavi_instance.coordinate_ascent(100)
+        mu_est.append(cavi_instance.mu)
+        sigma_est.append(cavi_instance.sigma)
+    cluster_params[lbl] = (mu_est, sigma_est)
+    print(f"Cluster {lbl}: Estimated mean = {mu_est}, sigma = {sigma_est}")
+
+# Plot clusters with the estimated means from CAVI for a visual check
+plt.figure()
+colors = ['tab:blue', 'tab:orange', 'tab:green']
+for lbl in unique_labels:
+    pts = data_clusters[labels == lbl]
+    plt.scatter(pts[:, 0], pts[:, 1], c=colors[lbl], label=f"Cluster {lbl}", alpha=0.6)
+    mu_vec, _ = cluster_params[lbl]
+    plt.scatter(mu_vec[0], mu_vec[1], c='red', marker='x', s=150, linewidths=3)
+
+plt.title("2D Clustering with CAVI Estimated Means")
 plt.xlabel("Feature 1")
 plt.ylabel("Feature 2")
 plt.legend()
